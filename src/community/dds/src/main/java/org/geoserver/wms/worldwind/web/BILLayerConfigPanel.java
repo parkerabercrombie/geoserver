@@ -1,4 +1,4 @@
-package web;
+package org.geoserver.wms.worldwind.web;
 
 import java.util.Arrays;
 
