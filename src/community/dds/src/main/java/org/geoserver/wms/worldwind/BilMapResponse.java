@@ -7,8 +7,10 @@ package org.geoserver.wms.worldwind;
 import java.awt.Rectangle;
 import java.awt.image.DataBuffer;
 import java.awt.image.RenderedImage;
+import java.awt.image.renderable.ParameterBlock;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,10 +21,12 @@ import javax.imageio.ImageWriter;
 import javax.imageio.spi.ImageWriterSpi;
 import javax.imageio.stream.ImageOutputStream;
 import javax.media.jai.Interpolation;
+import javax.media.jai.JAI;
 import javax.media.jai.RenderedOp;
 import javax.media.jai.TiledImage;
 import javax.media.jai.operator.FormatDescriptor;
 
+import org.geoserver.catalog.MetadataMap;
 import org.geoserver.data.util.CoverageUtils;
 import org.geoserver.platform.ServiceException;
 import org.geoserver.wms.GetMapRequest;
@@ -32,6 +36,7 @@ import org.geoserver.wms.WMS;
 import org.geoserver.wms.WMSMapContent;
 import org.geoserver.wms.map.RenderedImageMapResponse;
 import org.geoserver.wms.worldwind.util.BilWCSUtils;
+import org.geoserver.wms.worldwind.util.RecodeRaster;
 import org.geotools.coverage.CoverageFactoryFinder;
 import org.geotools.coverage.grid.GeneralGridEnvelope;
 import org.geotools.coverage.grid.GridCoverage2D;
@@ -41,6 +46,7 @@ import org.geotools.coverage.grid.io.GridCoverage2DReader;
 import org.geotools.coverage.grid.io.AbstractGridFormat;
 import org.geotools.geometry.GeneralEnvelope;
 import org.geotools.referencing.CRS;
+import org.geotools.resources.coverage.CoverageUtilities;
 import org.geotools.util.logging.Logging;
 import org.opengis.coverage.grid.GridCoverage;
 import org.opengis.coverage.grid.GridCoverageReader;
@@ -76,7 +82,7 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 
 	/** Raw Image Writer **/
 	private final static ImageWriterSpi writerSPI = new RawImageWriterSpi();
-    
+
     /**
      * Constructor for a {@link BilMapResponse}.
      *
@@ -87,40 +93,55 @@ public final class BilMapResponse extends RenderedImageMapResponse {
         super(OUTPUT_FORMATS,wms);
         this.wmsConfig = wms;
     }
-    
+
 	@Override
 	public void formatImageOutputStream(RenderedImage image, OutputStream outStream,
 	        WMSMapContent mapContent) throws ServiceException, IOException {
 		//TODO: Write reprojected terrain tile
 		// TODO Get request tile size
 		GetMapRequest request = mapContent.getRequest();
-		
+
 		String bilEncoding = (String) request.getFormat();
-		
+
 		int height = request.getHeight();
 		int width = request.getWidth();
-		
+
 		if ((height>512)||(width>512)){
 			throw new ServiceException("Cannot get WMS bil" +
 					" tiles bigger than 512x512, try WCS");
 		}
-		
+
 		List<MapLayerInfo> reqlayers = request.getLayers();
-		
+
 		//Can't fetch bil for more than 1 layer
 		if (reqlayers.size() > 1) 
 		{
 			throw new ServiceException("Cannot combine layers into BIL output");
 		}
 		MapLayerInfo mapLayerInfo = reqlayers.get(0);
-		
+
+	        MetadataMap metadata = mapLayerInfo.getResource().getMetadata();
+	        String defaultDataType = (String) metadata.get("bil.defaultDataTypeAttribute");
+	        String byteOrder = (String) metadata.get("bil.byteOrderAttribute");
+
+	        Double outNoData = null;
+	        String outNoDataStr = (String) metadata.get("bil.noDataOutputAttribute");
+	        try
+	        {
+	            outNoData = Double.parseDouble(outNoDataStr);
+	        } catch (NumberFormatException e)
+	        {
+	            LOGGER.warning("Can't parse output no data attribute: " + e.getMessage()); // TODO localize
+	        }
+
+
 		/*
 		final ParameterValueGroup writerParams = format.getWriteParameters();
         writerParams.parameter(AbstractGridFormat.GEOTOOLS_WRITE_PARAMS.getName().toString())
                     .setValue(wp);
 		*/
 		GridCoverageReader coverageReader = mapLayerInfo.getCoverageReader();
-		
+
 		/*
 		 * Try to use a gridcoverage style render
 		 */
@@ -165,28 +186,60 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 	        				"Wrong underlying data type");
 	        	}
 	        	*/
-	        	
-	        	/*
-	        	 * Perform format conversion
-	        	 * Operator is not created if no conversion is necessary
-	        	 */
-	        	RenderedOp formcov = null;
+
+	        	RenderedImage transformedImage = image;
+                        /*
+                         * Perform NoData translation
+                         */
+                        final double[] inNoDataValues = CoverageUtilities.getBackgroundValues(
+                                (GridCoverage2D) subCov);
+                        if (inNoDataValues != null && outNoData != null)
+                        {
+                            // TODO should support multiple no-data values
+                            final double inNoData = inNoDataValues[0];
+
+                            if (inNoData != outNoData)
+                            {
+                                ParameterBlock param = new ParameterBlock().addSource(image);
+                                param = param.add(inNoData);
+                                param = param.add(outNoData);
+                                transformedImage = JAI.create(RecodeRaster.OPERATION_NAME, param, null);
+                            }
+                        }
+
+	                /*
+                         * Perform format conversion
+                         * Operator is not created if no conversion is necessary
+                         */
+	                if (defaultDataType != null && ((bilEncoding.equals("application/bil") ||
+	                                bilEncoding.equals("image/bil"))))
+	                {
+	                    bilEncoding = defaultDataType;
+	                }
+
 	        	if((bilEncoding.equals("application/bil32"))&&(dtype!=DataBuffer.TYPE_FLOAT))	        	{
-	        		formcov = FormatDescriptor.create(image,DataBuffer.TYPE_FLOAT ,null);
+	        	    transformedImage = FormatDescriptor.create(transformedImage,DataBuffer.TYPE_FLOAT ,null);
 	        	}
 	        	if((bilEncoding.equals("application/bil16"))&&(dtype!=DataBuffer.TYPE_SHORT))	        	{
-	        		formcov = FormatDescriptor.create(image,DataBuffer.TYPE_SHORT ,null);
+	        	    transformedImage = FormatDescriptor.create(transformedImage,DataBuffer.TYPE_SHORT ,null);
 	        	}
 	        	if((bilEncoding.equals("application/bil8"))&&(dtype!=DataBuffer.TYPE_BYTE))	        	{
-	        		formcov = FormatDescriptor.create(image,DataBuffer.TYPE_BYTE ,null);
+	        	    transformedImage = FormatDescriptor.create(transformedImage,DataBuffer.TYPE_BYTE ,null);
 	        	}
-	        	TiledImage tiled = null;
-	        	if (formcov!= null)
-	        		tiled = new TiledImage(formcov,width,height);
-	        	else
-	        		tiled = new TiledImage(image,width,height);
+
+	        	TiledImage tiled = new TiledImage(transformedImage,width,height);
+
 	        	final ImageOutputStream imageOutStream = ImageIO.createImageOutputStream(outStream);
 		        final ImageWriter writer = writerSPI.createWriterInstance();
+
+	                if ("Little Endian".equals(byteOrder))
+	                {
+	                    imageOutStream.setByteOrder(ByteOrder.LITTLE_ENDIAN);
+	                } else if ("Big Endian".equals(byteOrder))
+	                {
+	                    imageOutStream.setByteOrder(ByteOrder.BIG_ENDIAN);
+	                }
+
 		        writer.setOutput(imageOutStream);
 		        writer.write(tiled);
 		        imageOutStream.flush();
