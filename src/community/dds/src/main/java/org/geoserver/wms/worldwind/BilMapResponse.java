@@ -22,7 +22,6 @@ import javax.imageio.spi.ImageWriterSpi;
 import javax.imageio.stream.ImageOutputStream;
 import javax.media.jai.Interpolation;
 import javax.media.jai.JAI;
-import javax.media.jai.RenderedOp;
 import javax.media.jai.TiledImage;
 import javax.media.jai.operator.FormatDescriptor;
 
@@ -118,21 +117,24 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 		{
 			throw new ServiceException("Cannot combine layers into BIL output");
 		}
+		
+		// Get BIL layer configuration. This configuration is set by the server administrator
+		// using the BIL layer config panel.
 		MapLayerInfo mapLayerInfo = reqlayers.get(0);
+		MetadataMap metadata = mapLayerInfo.getResource().getMetadata();
 
-	        MetadataMap metadata = mapLayerInfo.getResource().getMetadata();
-	        String defaultDataType = (String) metadata.get("bil.defaultDataTypeAttribute");
-	        String byteOrder = (String) metadata.get("bil.byteOrderAttribute");
+		String defaultDataType = (String) metadata.get("bil.defaultDataTypeAttribute");
+		String byteOrder = (String) metadata.get("bil.byteOrderAttribute");
 
-	        Double outNoData = null;
-	        String outNoDataStr = (String) metadata.get("bil.noDataOutputAttribute");
-	        try
-	        {
-	            outNoData = Double.parseDouble(outNoDataStr);
-	        } catch (NumberFormatException e)
-	        {
-	            LOGGER.warning("Can't parse output no data attribute: " + e.getMessage()); // TODO localize
-	        }
+		Double outNoData = null;
+		String outNoDataStr = (String) metadata.get("bil.noDataOutputAttribute");
+		try
+		{
+			outNoData = Double.parseDouble(outNoDataStr);
+		} catch (NumberFormatException e)
+		{
+			LOGGER.warning("Can't parse output no data attribute: " + e.getMessage()); // TODO localize
+		}
 
 
 		/*
@@ -188,34 +190,36 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 	        	*/
 
 	        	RenderedImage transformedImage = image;
-                        /*
-                         * Perform NoData translation
-                         */
-                        final double[] inNoDataValues = CoverageUtilities.getBackgroundValues(
-                                (GridCoverage2D) subCov);
-                        if (inNoDataValues != null && outNoData != null)
-                        {
-                            // TODO should support multiple no-data values
-                            final double inNoData = inNoDataValues[0];
 
-                            if (inNoData != outNoData)
-                            {
-                                ParameterBlock param = new ParameterBlock().addSource(image);
-                                param = param.add(inNoData);
-                                param = param.add(outNoData);
-                                transformedImage = JAI.create(RecodeRaster.OPERATION_NAME, param, null);
-                            }
-                        }
+	        	/*
+                 * Perform NoData translation
+                 */
+	        	final double[] inNoDataValues = CoverageUtilities.getBackgroundValues(
+	        			(GridCoverage2D) subCov);
+	        	if (inNoDataValues != null && outNoData != null)
+	        	{
+	        		// TODO should support multiple no-data values
+	        		final double inNoData = inNoDataValues[0];
 
-	                /*
-                         * Perform format conversion
-                         * Operator is not created if no conversion is necessary
-                         */
-	                if (defaultDataType != null && ((bilEncoding.equals("application/bil") ||
-	                                bilEncoding.equals("image/bil"))))
-	                {
-	                    bilEncoding = defaultDataType;
-	                }
+	        		if (inNoData != outNoData)
+	        		{
+	        			ParameterBlock param = new ParameterBlock().addSource(image);
+	        			param = param.add(inNoData);
+	        			param = param.add(outNoData);
+	        			transformedImage = JAI.create(RecodeRaster.OPERATION_NAME, param, null);
+	        			}
+	        		}
+
+	        	/*
+	        	 * Perform format conversion. If the requested encoding does not specify the format
+	        	 * (i.e. application/bil or image/bil), then convert to the default encoding configured
+	        	 * by the server administrator. Operator is not created if no conversion is necessary.
+	        	 */
+	        	if (defaultDataType != null && ((bilEncoding.equals("application/bil") ||
+	        			bilEncoding.equals("image/bil"))))
+	        	{
+	        		bilEncoding = defaultDataType;
+	        	}
 
 	        	if((bilEncoding.equals("application/bil32"))&&(dtype!=DataBuffer.TYPE_FLOAT))	        	{
 	        	    transformedImage = FormatDescriptor.create(transformedImage,DataBuffer.TYPE_FLOAT ,null);
@@ -232,13 +236,16 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 	        	final ImageOutputStream imageOutStream = ImageIO.createImageOutputStream(outStream);
 		        final ImageWriter writer = writerSPI.createWriterInstance();
 
-	                if ("Little Endian".equals(byteOrder))
-	                {
-	                    imageOutStream.setByteOrder(ByteOrder.LITTLE_ENDIAN);
-	                } else if ("Big Endian".equals(byteOrder))
-	                {
-	                    imageOutStream.setByteOrder(ByteOrder.BIG_ENDIAN);
-	                }
+		        /*
+		         * Set byte order out of output stream based on layer configuration.
+		         */
+		        if ("Little Endian".equals(byteOrder))
+		        {
+		        	imageOutStream.setByteOrder(ByteOrder.LITTLE_ENDIAN);
+		        } else if ("Big Endian".equals(byteOrder))
+		        {
+		        	imageOutStream.setByteOrder(ByteOrder.BIG_ENDIAN);
+		        }
 
 		        writer.setOutput(imageOutStream);
 		        writer.write(tiled);
@@ -296,11 +303,9 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 	    GeneralEnvelope destinationEnvelope = new GeneralEnvelope(mapContent.getRenderingArea());
 
 	    // this is the destination envelope in the coverage crs
-	    final GeneralEnvelope destinationEnvelopeInSourceCRS = (!deviceCRSToGCCRSTransform
-	        .isIdentity()) ? CRS.transform(deviceCRSToGCCRSTransform, destinationEnvelope)
-	                       : new GeneralEnvelope(destinationEnvelope);
-	    destinationEnvelopeInSourceCRS.setCoordinateReferenceSystem(cvCRS);
-	
+	    final GeneralEnvelope destinationEnvelopeInSourceCRS = CRS.transform(destinationEnvelope,
+	            cvCRS);
+
 	    /**
 	     * Reading Coverage on Requested Envelope
 	    */
@@ -368,13 +373,13 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 	    if ((coverage == null) || !(coverage instanceof GridCoverage2D)) {
 	        throw new IOException("The requested coverage could not be found.");
 	    }
-	
+
 	    /**
 	     * Band Select
 	     */
 	    /*
 	    Coverage bandSelectedCoverage = null;
-	
+
 	    bandSelectedCoverage = WCSUtils.bandSelect(request.getParameters(), coverage);
 		*/
 	    /**
@@ -383,20 +388,20 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 	    final GridCoverage2D croppedGridCoverage = BilWCSUtils.crop(coverage,
 	            (GeneralEnvelope) coverage.getEnvelope(), cvCRS, destinationEnvelopeInSourceCRS,
 	            Boolean.TRUE);
-	    
+
 	    /**
 	     * Scale/Resampling (if necessary)
 	     */
 	    //GridCoverage2D subCoverage = null;
 	    GridCoverage2D subCoverage = croppedGridCoverage;
 	    final GeneralGridEnvelope newGridrange = new GeneralGridEnvelope(destinationSize);
-	
+
 	    /*if (!newGridrange.equals(croppedGridCoverage.getGridGeometry()
 	                    .getGridRange())) {*/
 	    subCoverage = BilWCSUtils.scale(croppedGridCoverage, newGridrange, croppedGridCoverage, cvCRS,
 	            destinationEnvelopeInSourceCRS);
 	    //}
-	
+
 	    /**
 	     * Reproject
 	     */
