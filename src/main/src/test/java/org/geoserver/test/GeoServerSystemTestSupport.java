@@ -126,7 +126,7 @@ import com.mockrunner.mock.web.MockServletOutputStream;
  * work off a real data directory provided by {@link SystemTestData}.
  * <h2>Subclass Hooks</h2>
  * <p>
- * Subclasses extending this base class have the following hooks avaialble:
+ * Subclasses extending this base class have the following hooks available:
  * <ul>
  *   <li>{@link #setUpTestData(SystemTestData)} - Perform post configuration of the {@link SystemTestData} 
  *   instance</li>
@@ -284,7 +284,7 @@ public class GeoServerSystemTestSupport extends GeoServerBaseTestSupport<SystemT
     }
 
     /**
-     * Subclass hook called before the system (ie spring context) is to be shut down.
+     * Subclass hook called before the system (i.e. spring context) is to be shut down.
      * <p>
      * Subclasses should override for any cleanup / teardown that should occur on system shutdown. 
      * </p>
@@ -501,7 +501,7 @@ public class GeoServerSystemTestSupport extends GeoServerBaseTestSupport<SystemT
      * </p>
      * <p>
      * To do a recursive delete of all the resources under the namespace the 
-     * {@link #removeWorkspace(String)} method shoul be used.
+     * {@link #removeWorkspace(String)} method should be used.
      * </p>
      * <p>
      * This method is intended to be called after system startup. Typically from 
@@ -590,7 +590,7 @@ public class GeoServerSystemTestSupport extends GeoServerBaseTestSupport<SystemT
             cat.getResourcePool().deleteStyle(s, true);
         }
         else {
-            //handle case of sld fiel still lying around
+            //handle case of sld file still lying around
             File sld = workspaceName != null ? 
                 cat.getResourceLoader().find("workspaces", workspaceName, "styles", name + ".sld") : 
                 cat.getResourceLoader().find("styles", name + ".sld");
@@ -863,7 +863,7 @@ public class GeoServerSystemTestSupport extends GeoServerBaseTestSupport<SystemT
      * </pre>
      * </p>
      * @param path The path for the request, minus any query string parameters.
-     * @param kvp The key value pairs to be put in teh query string. 
+     * @param kvp The key value pairs to be put in the query string.
      * 
      */
     protected MockHttpServletRequest createRequest( String path, Map kvp ) {
@@ -881,7 +881,7 @@ public class GeoServerSystemTestSupport extends GeoServerBaseTestSupport<SystemT
     /**
      * Executes an ows request using the GET method.
      *
-     * @param path The porition of the request after hte context, 
+     * @param path The portion of the request after the context,
      *      example: 'wms?request=GetMap&version=1.1.1&..."
      * 
      * @return An input stream which is the result of the request.
@@ -896,7 +896,7 @@ public class GeoServerSystemTestSupport extends GeoServerBaseTestSupport<SystemT
     /**
      * Executes an ows request using the GET method.
      *
-     * @param path The porition of the request after hte context, 
+     * @param path The portion of the request after the context,
      *      example: 'wms?request=GetMap&version=1.1.1&..."
      * 
      * @return the mock servlet response
@@ -910,7 +910,7 @@ public class GeoServerSystemTestSupport extends GeoServerBaseTestSupport<SystemT
     /**
      * Executes an ows request using the GET method.
      *
-     * @param path The porition of the request after hte context, 
+     * @param path The portion of the request after the context,
      *      example: 'wms?request=GetMap&version=1.1.1&..."
      * @param charset The character set of the response.
      * 
@@ -1025,7 +1025,7 @@ public class GeoServerSystemTestSupport extends GeoServerBaseTestSupport<SystemT
      * <p>
      * 
      * </p>
-     * @param path The porition of the request after the context ( no query string ), 
+     * @param path The portion of the request after the context ( no query string ),
      *      example: 'wms'. 
      * 
      * @return An input stream which is the result of the request.
@@ -1042,7 +1042,7 @@ public class GeoServerSystemTestSupport extends GeoServerBaseTestSupport<SystemT
      * 
      * 
      * @param path
-     *            The porition of the request after the context ( no query
+     *            The portion of the request after the context ( no query
      *            string ), example: 'wms'.
      * @param xml The body content.
      * 
@@ -1094,7 +1094,7 @@ public class GeoServerSystemTestSupport extends GeoServerBaseTestSupport<SystemT
      * Executes an ows request using the POST method.
      * 
      * @param path
-     *            The porition of the request after the context ( no query
+     *            The portion of the request after the context ( no query
      *            string ), example: 'wms'.
      * 
      * @param body
@@ -1122,7 +1122,7 @@ public class GeoServerSystemTestSupport extends GeoServerBaseTestSupport<SystemT
     }
     
     /**
-     * Execultes a request using the DELETE method.
+     * Executes a request using the DELETE method.
      * 
      * @param path The path of the request.
      * 
