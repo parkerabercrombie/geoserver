@@ -23,12 +23,12 @@ import org.geotools.util.logging.Logging;
  * @author Parker Abercrombie
  */
 @SuppressWarnings("serial")
-public class BilLayerConfigPanel extends LayerConfigurationPanel
+public class BILLayerConfigPanel extends LayerConfigurationPanel
 {
-    private static final Logger LOGGER = Logging.getLogger(BilLayerConfigPanel.class);
+    private static final Logger LOGGER = Logging.getLogger(BILLayerConfigPanel.class);
 
     @SuppressWarnings("unchecked")
-    public BilLayerConfigPanel(String id, IModel<org.geoserver.catalog.LayerInfo> model)
+    public BILLayerConfigPanel(String id, IModel<org.geoserver.catalog.LayerInfo> model)
     {
         super(id, model);
 
@@ -64,12 +64,12 @@ public class BilLayerConfigPanel extends LayerConfigurationPanel
     	    IStringResourceLoader loader = new GeoServerStringResourceLoader();    	   
     	    if (ByteOrder.LITTLE_ENDIAN.toString().equals(str))
         	{
-        		return loader.loadStringResource(BilLayerConfigPanel.this,
+        		return loader.loadStringResource(BILLayerConfigPanel.this,
         		        "BILLayerConfigPanel.byteOrderLittleEndian");
         	}
         	else if (ByteOrder.BIG_ENDIAN.toString().equals(str))
         	{
-                return loader.loadStringResource(BilLayerConfigPanel.this,
+                return loader.loadStringResource(BILLayerConfigPanel.this,
                         "BILLayerConfigPanel.byteOrderBigEndian");
         	}
 

@@ -51,6 +51,7 @@ import org.opengis.coverage.grid.GridCoverage;
 import org.opengis.coverage.grid.GridCoverageReader;
 import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
+import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
 import org.vfny.geoserver.wcs.WcsException;
 
@@ -117,7 +118,7 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 		{
 			throw new ServiceException("Cannot combine layers into BIL output");
 		}
-		
+
 		// Get BIL layer configuration. This configuration is set by the server administrator
 		// using the BIL layer config panel.
 		MapLayerInfo mapLayerInfo = reqlayers.get(0);
@@ -128,14 +129,16 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 
 		Double outNoData = null;
 		String outNoDataStr = (String) metadata.get("bil.noDataOutputAttribute");
-		try
+		if (outNoDataStr != null)
 		{
-			outNoData = Double.parseDouble(outNoDataStr);
-		} catch (NumberFormatException e)
-		{
-			LOGGER.warning("Can't parse output no data attribute: " + e.getMessage()); // TODO localize
+    		try
+    		{
+    			outNoData = Double.parseDouble(outNoDataStr);
+    		} catch (NumberFormatException e)
+    		{
+    			LOGGER.warning("Can't parse output no data attribute: " + e.getMessage()); // TODO localize
+    		}
 		}
-
 
 		/*
 		final ParameterValueGroup writerParams = format.getWriteParameters();
@@ -302,9 +305,16 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 
 	    GeneralEnvelope destinationEnvelope = new GeneralEnvelope(mapContent.getRenderingArea());
 
-	    // this is the destination envelope in the coverage crs
-	    final GeneralEnvelope destinationEnvelopeInSourceCRS = CRS.transform(destinationEnvelope,
-	            cvCRS);
+        final MathTransform GCCRSTodeviceCRSTransformdeviceCRSToGCCRSTransform = CRS
+                .findMathTransform(cvCRS, sourceCRS, true);
+        final MathTransform deviceCRSToGCCRSTransform = GCCRSTodeviceCRSTransformdeviceCRSToGCCRSTransform
+                .inverse();
+
+        // this is the destination envelope in the coverage crs
+        final GeneralEnvelope destinationEnvelopeInSourceCRS = (!deviceCRSToGCCRSTransform
+            .isIdentity()) ? CRS.transform(deviceCRSToGCCRSTransform, destinationEnvelope)
+                    : new GeneralEnvelope(destinationEnvelope);
+             destinationEnvelopeInSourceCRS.setCoordinateReferenceSystem(cvCRS);
 
 	    /**
 	     * Reading Coverage on Requested Envelope
