@@ -128,12 +128,15 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 		String byteOrder = (String) metadata.get("bil.byteOrderAttribute");
 
 		Double outNoData = null;
-		String outNoDataStr = (String) metadata.get("bil.noDataOutputAttribute");
-		if (outNoDataStr != null)
+		Object noDataParam = metadata.get("bil.noDataOutputAttribute");
+		if (noDataParam instanceof Number)
+		{
+		    outNoData = ((Number) noDataParam).doubleValue();
+		} else if (noDataParam instanceof String)
 		{
     		try
     		{
-    			outNoData = Double.parseDouble(outNoDataStr);
+    			outNoData = Double.parseDouble((String) noDataParam);
     		} catch (NumberFormatException e)
     		{
     			LOGGER.warning("Can't parse output no data attribute: " + e.getMessage()); // TODO localize
@@ -416,7 +419,7 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 	     * Reproject
 	     */
 	    subCoverage = BilWCSUtils.reproject(subCoverage, sourceCRS, targetCRS, interpolation);
-	    
+
 	    return subCoverage;
 	}
 
@@ -427,5 +430,9 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 	public MapProducerCapabilities getCapabilities(String outputFormat) {
 		// FIXME become more capable
 		return new MapProducerCapabilities(false, false, false, false, null);
+	}
+
+	static {
+	    RecodeRaster.register(JAI.getDefaultInstance());
 	}
 }
