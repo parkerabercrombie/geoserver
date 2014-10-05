@@ -55,8 +55,8 @@ public class BilTest extends WMSTestSupport {
 	public void testBil() throws Exception {
         byte[] response = getStandardRequest("application/bil");
 
-        // TODO why is expected content here different than for bil16 below?
-        assertEquals("testStandardRequest", 9377, response.length);
+        int expected = width * height * 2; // Native encoding, 2 bytes/pixel
+        assertEquals("testStandardRequest", expected, response.length);
     }
 
     @Test
