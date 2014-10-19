@@ -245,10 +245,10 @@ public final class BilMapResponse extends RenderedImageMapResponse {
 		        /*
 		         * Set byte order out of output stream based on layer configuration.
 		         */
-		        if ("Little Endian".equals(byteOrder))
+		        if (ByteOrder.LITTLE_ENDIAN.toString().equals(byteOrder))
 		        {
 		        	imageOutStream.setByteOrder(ByteOrder.LITTLE_ENDIAN);
-		        } else if ("Big Endian".equals(byteOrder))
+		        } else if (ByteOrder.BIG_ENDIAN.toString().equals(byteOrder))
 		        {
 		        	imageOutStream.setByteOrder(ByteOrder.BIG_ENDIAN);
 		        }
